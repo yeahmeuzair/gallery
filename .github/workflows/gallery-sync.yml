@@ -2,11 +2,11 @@ name: Auto Update BISE Gallery JSON
 
 on:
   schedule:
-    - cron: '0 */6 * * *' # Har 6 ghante baad chalega
-  workflow_dispatch: # Actions tab se manual run karne ke liye
+    - cron: '0 */6 * * *' 
+  workflow_dispatch: 
 
 permissions:
-  contents: write # Bot ko repo mein JSON file save karne ki permission deta hai
+  contents: write 
 
 jobs:
   update-gallery:
@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # This line prevents the fetch/push rejection error
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -31,8 +33,10 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add gallery_data.json
-          # Check if there are changes before committing
+          
+          # Check for changes and commit
           git diff --quiet && git diff --staged --quiet || git commit -m "Auto-update gallery data"
-          # Pull any recent changes from the repo before pushing
+          
+          # Pull the latest changes from your repo safely, then push
           git pull --rebase origin main
           git push
