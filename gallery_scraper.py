@@ -9,6 +9,10 @@ sources = [
     'https://rss.app/feeds/wEDpserXX52ZixzJ.xml',
     'https://rss.app/feeds/tzobQLUwCkEvsRbO.xml',
     'https://rss.app/feeds/eCF0mVZksIjdj4Lr.xml',
+    'https://rss.app/feeds/kaU5xsCOdNTjOyPI.xml',
+    'https://rss.app/feeds/a4EO2O9XAh5pA0Tv.xml',
+    'https://rss.app/feeds/ThLA59Y8fUmVjsiT.xml',
+    'https://rss.app/feeds/pI1UzPBdMoVgPWuw.xml',
     'https://rss.app/feeds/7UrzKUUXoVYqf06J.xml'
 ]
 
