@@ -1,27 +1,21 @@
 import feedparser
 import json
 import re
-import requests
-import os
-import urllib.parse
 
-# Fetch API Key from GitHub Secrets
-API_KEY = os.environ.get('SCRAPER_API_KEY')
-
-if not API_KEY:
-    print("Error: SCRAPER_API_KEY not found in environment variables!")
-    exit(1)
-
-# Using RSSHub URLs routed through ScraperAPI to bypass Cloudflare 403 blocks
+# 1. Your 6 Custom FetchRSS Feed URLs
 sources = [
-    'https://rsshub.app/facebook/page/Federal.BISE.Official',
-    'https://rsshub.app/facebook/page/bbiseqta.edu.pk',
-    'https://rsshub.app/facebook/page/BISEPonline',
-    'https://rsshub.app/twitter/user/EduMinistryPK',
-    'https://rsshub.app/twitter/user/PHEC_official'
+    'https://fetchrss.com/feed/1x7tp94pp9101x7too9x38d0.rss',
+    'https://fetchrss.com/feed/1x7tyP0ujCcE1x7uHi87oDDO.rss',
+    'https://fetchrss.com/feed/1x7tyP0ujCcE1x7uKlAci92I.rss',
+    'https://fetchrss.com/feed/1x7tyP0ujCcE1x7uLI8nM0zi.rss',
+    'https://fetchrss.com/feed/1x7tyP0ujCcE1x7uLv9wWFta.rss',
+    'https://fetchrss.com/feed/1x7tyP0ujCcE1x7uOG3Rh2c6.rss'
 ]
 
+# Strict event keyword filter
 required_words = ['ceremony', 'celebration', 'celebrations', 'celebrating', 'visit', 'expo', 'week', 'workshop', 'competition', 'sports', 'festival']
+
+# Strict exclusion filter for text-heavy posts
 excluded_words = ['notification', 'notifications', 'achievement', 'announcement', 'update', 'ai generated', 'examination', 'exam', 'date sheet', 'datesheet', 'apply', 'schedule', 'fee', 'result', 'roll number']
 
 gallery_data = {'General': []}
@@ -29,12 +23,14 @@ gallery_data = {'General': []}
 def process_item(image_url, caption):
     caption_lower = caption.lower()
     
+    # 1. Reject notifications and text banners
     if any(word in caption_lower for word in excluded_words):
         return
         
-    # The required event filter is currently disabled for testing
-    # if not any(word in caption_lower for word in required_words):
-    #     return
+    # 2. MUST contain an event word
+    # (If your JSON comes out empty again, comment these two lines out temporarily by adding a '#' at the start to test if the links have valid pictures)
+    if not any(word in caption_lower for word in required_words):
+        return
 
     event_name = 'General'
     match = re.search(r'(event|expo|week|workshop):\s*([a-zA-Z0-9\s]+)', caption, re.IGNORECASE)
@@ -50,48 +46,38 @@ def process_item(image_url, caption):
             'caption': caption.strip()
         })
 
-for target_url in sources:
-    # Route RSSHub through ScraperAPI
-    encoded_url = urllib.parse.quote(target_url)
-    scraper_url = f"http://api.scraperapi.com?api_key={API_KEY}&url={encoded_url}"
-    
+for url in sources:
     try:
-        # Extract the page name for clean console logging
-        page_name = target_url.split('/')[-1]
-        print(f"Fetching {page_name} via ScraperAPI...")
+        print(f"Fetching data from {url}...")
+        feed = feedparser.parse(url)
         
-        response = requests.get(scraper_url, timeout=60)
-        
-        if response.status_code == 200:
-            feed = feedparser.parse(response.content)
+        for entry in feed.entries:
+            image_url = ''
             
-            for entry in feed.entries:
-                image_url = ''
-                
-                if 'media_content' in entry and len(entry.media_content) > 0:
-                    image_url = entry.media_content[0]['url']
-                elif 'links' in entry:
-                    for link in entry.links:
-                        if link.get('rel') == 'enclosure' and 'image' in link.get('type', ''):
-                            image_url = link.get('href')
-                            break
-                            
-                if not image_url and 'content' in entry:
-                    content_value = entry.content[0].value
-                    match = re.search(r'<img[^>]+src="([^">]+)"', content_value)
-                    if match:
-                        image_url = match.group(1)
-                
-                caption = getattr(entry, 'title', '') + " " + getattr(entry, 'summary', '')
-                caption = re.sub(r'<[^>]+>', '', caption)
-                
-                if image_url:
-                    process_item(image_url, caption)
-        else:
-            print(f"Failed with status: {response.status_code}")
+            # FetchRSS handles image tags cleanly
+            if 'media_content' in entry and len(entry.media_content) > 0:
+                image_url = entry.media_content[0]['url']
+            elif 'links' in entry:
+                for link in entry.links:
+                    if link.get('rel') == 'enclosure' and 'image' in link.get('type', ''):
+                        image_url = link.get('href')
+                        break
             
+            # Fallback for images embedded in the description
+            if not image_url and 'summary' in entry:
+                match = re.search(r'<img[^>]+src="([^">]+)"', entry.summary)
+                if match:
+                    image_url = match.group(1)
+            
+            caption = getattr(entry, 'title', '') + " " + getattr(entry, 'summary', '')
+            caption = re.sub(r'<[^>]+>', '', caption) 
+            
+            if image_url:
+                process_item(image_url, caption)
+                
     except Exception as e:
-        print(f"Error fetching data: {e}")
+        print(f"Error fetching {url}: {e}")
 
 with open('gallery_data.json', 'w', encoding='utf-8') as f:
     json.dump(gallery_data, f, indent=4, ensure_ascii=False)
+    print("Gallery data successfully saved!")
