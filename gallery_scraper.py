@@ -2,25 +2,25 @@ import feedparser
 import json
 import re
 import requests
+import time
 
-# 1. 100% Free Lifetime RSS-Bridge URLs
-sources = [
-    # Federal Board FB
-    'https://rss-bridge.org/bridge01/?action=display&bridge=Facebook&context=Facebook+Page&u=Federal.BISE.Official&media_type=all&format=Atom',
-    # Quetta Board FB
-    'https://rss-bridge.org/bridge01/?action=display&bridge=Facebook&context=Facebook+Page&u=bbiseqta.edu.pk&media_type=all&format=Atom',
-    # Peshawar Board FB
-    'https://rss-bridge.org/bridge01/?action=display&bridge=Facebook&context=Facebook+Page&u=BISEPonline&media_type=all&format=Atom',
-    # EduMinistry X
-    'https://rss-bridge.org/bridge01/?action=display&bridge=Twitter&context=By+username&u=EduMinistryPK&format=Atom',
-    # PHEC X
-    'https://rss-bridge.org/bridge01/?action=display&bridge=Twitter&context=By+username&u=PHEC_official&format=Atom'
+# Multiple community-hosted RSS-Bridge instances to bypass IP blocks
+base_urls = [
+    'https://rss-bridge.org/bridge01/',
+    'https://bridge.suumitsu.eu/',
+    'https://rss.it-kun.de/'
 ]
 
-# Strict event keyword filter
-required_words = ['ceremony', 'celebration', 'celebrations', 'celebrating', 'visit', 'expo', 'week', 'workshop', 'competition', 'sports', 'festival']
+# The specific queries for your boards
+queries = [
+    '?action=display&bridge=Facebook&context=Facebook+Page&u=Federal.BISE.Official&media_type=all&format=Atom',
+    '?action=display&bridge=Facebook&context=Facebook+Page&u=bbiseqta.edu.pk&media_type=all&format=Atom',
+    '?action=display&bridge=Facebook&context=Facebook+Page&u=BISEPonline&media_type=all&format=Atom',
+    '?action=display&bridge=Twitter&context=By+username&u=EduMinistryPK&format=Atom',
+    '?action=display&bridge=Twitter&context=By+username&u=PHEC_official&format=Atom'
+]
 
-# Strict exclusion filter for text-heavy posts
+required_words = ['ceremony', 'celebration', 'celebrations', 'celebrating', 'visit', 'expo', 'week', 'workshop', 'competition', 'sports', 'festival']
 excluded_words = ['notification', 'notifications', 'achievement', 'announcement', 'update', 'ai generated', 'examination', 'exam', 'date sheet', 'datesheet', 'apply', 'schedule', 'fee', 'result', 'roll number']
 
 gallery_data = {'General': []}
@@ -28,12 +28,10 @@ gallery_data = {'General': []}
 def process_item(image_url, caption):
     caption_lower = caption.lower()
     
-    # Condition 1: Strict rejection of notifications/forms
     if any(word in caption_lower for word in excluded_words):
         return
         
-    # Condition 2: MUST contain an event-related word 
-    # (DISABLED FOR NOW TO TEST IF DATA IS FETCHING - Remove the '#' below to enable later)
+    # Filter abhi bhi comment kiya hua hai taake pehle data aana shuru ho
     # if not any(word in caption_lower for word in required_words):
     #     return
 
@@ -51,48 +49,59 @@ def process_item(image_url, caption):
             'caption': caption.strip()
         })
 
-# Masking the script as a real browser to bypass RSS-Bridge blocks
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36'
 }
 
-for url in sources:
-    try:
-        # Using requests to get the feed content safely
-        response = requests.get(url, headers=headers, timeout=20)
-        response.raise_for_status() # Check for HTTP errors like 403 or 500
-        
-        feed = feedparser.parse(response.content)
-        
-        for entry in feed.entries:
-            image_url = ''
+for query in queries:
+    success = False
+    for base in base_urls:
+        url = base + query
+        try:
+            print(f"Trying to fetch from: {base}...")
+            response = requests.get(url, headers=headers, timeout=15)
             
-            # Upgrade: Bulletproof Image Extraction
-            # 1. Try standard media content
-            if 'media_content' in entry and len(entry.media_content) > 0:
-                image_url = entry.media_content[0]['url']
-            # 2. Try enclosures
-            elif 'links' in entry:
-                for link in entry.links:
-                    if link.get('rel') == 'enclosure' and 'image' in link.get('type', ''):
-                        image_url = link.get('href')
-                        break
-            # 3. Aggressively parse HTML content for embedded image tags
-            if not image_url and 'content' in entry:
-                content_value = entry.content[0].value
-                match = re.search(r'<img[^>]+src="([^">]+)"', content_value)
-                if match:
-                    image_url = match.group(1)
-            
-            # Combine title and summary for the full text check
-            caption = getattr(entry, 'title', '') + " " + getattr(entry, 'summary', '')
-            caption = re.sub(r'<[^>]+>', '', caption) # Clean HTML tags
-            
-            if image_url:
-                process_item(image_url, caption)
+            if response.status_code == 200:
+                feed = feedparser.parse(response.content)
                 
-    except Exception as e:
-        print(f"Error fetching {url}: {e}")
+                if len(feed.entries) > 0:
+                    print(f"Success! Fetched data from {base}")
+                    for entry in feed.entries:
+                        image_url = ''
+                        
+                        if 'media_content' in entry and len(entry.media_content) > 0:
+                            image_url = entry.media_content[0]['url']
+                        elif 'links' in entry:
+                            for link in entry.links:
+                                if link.get('rel') == 'enclosure' and 'image' in link.get('type', ''):
+                                    image_url = link.get('href')
+                                    break
+                                    
+                        if not image_url and 'content' in entry:
+                            content_value = entry.content[0].value
+                            match = re.search(r'<img[^>]+src="([^">]+)"', content_value)
+                            if match:
+                                image_url = match.group(1)
+                        
+                        caption = getattr(entry, 'title', '') + " " + getattr(entry, 'summary', '')
+                        caption = re.sub(r'<[^>]+>', '', caption)
+                        
+                        if image_url:
+                            process_item(image_url, caption)
+                            
+                    success = True
+                    break # Data mil gaya, aagay rotation rok do aur next board par jao
+                else:
+                    print(f"Server {base} returned empty data. Trying next...")
+            else:
+                print(f"Failed with status {response.status_code}. Trying next...")
+        except Exception as e:
+            print(f"Error connecting to {base}: {e}")
+        
+        time.sleep(2) # Anti-spam delay
+        
+    if not success:
+        print(f"WARNING: All servers failed for query: {query}")
 
 with open('gallery_data.json', 'w', encoding='utf-8') as f:
     json.dump(gallery_data, f, indent=4, ensure_ascii=False)
