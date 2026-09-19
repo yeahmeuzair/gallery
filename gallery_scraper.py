@@ -8,6 +8,7 @@ sources = [
     'https://rss.app/feeds/EVFiHoOYNTzFOTsu.xml',
     'https://rss.app/feeds/wEDpserXX52ZixzJ.xml',
     'https://rss.app/feeds/tzobQLUwCkEvsRbO.xml',
+    'https://rss.app/feeds/eCF0mVZksIjdj4Lr.xml',
     'https://rss.app/feeds/7UrzKUUXoVYqf06J.xml'
 ]
 
