@@ -4,22 +4,22 @@ import re
 import requests
 import time
 
-# Multiple community-hosted RSS-Bridge instances to bypass IP blocks
-base_urls = [
-    'https://rss-bridge.org/bridge01/',
-    'https://bridge.suumitsu.eu/',
-    'https://rss.it-kun.de/'
+# Robust Fallback System using RSSHub and Nitter
+# Format: ['Primary_URL', 'Backup_URL']
+sources = [
+    # Federal Board FB
+    ['https://rsshub.app/facebook/page/Federal.BISE.Official', 'https://rsshub.feedox.com/facebook/page/Federal.BISE.Official'],
+    # Quetta Board FB
+    ['https://rsshub.app/facebook/page/bbiseqta.edu.pk', 'https://rsshub.feedox.com/facebook/page/bbiseqta.edu.pk'],
+    # Peshawar Board FB
+    ['https://rsshub.app/facebook/page/BISEPonline', 'https://rsshub.feedox.com/facebook/page/BISEPonline'],
+    # EduMinistry X (Twitter)
+    ['https://nitter.privacydev.net/EduMinistryPK/rss', 'https://rsshub.app/twitter/user/EduMinistryPK'],
+    # PHEC X (Twitter)
+    ['https://nitter.privacydev.net/PHEC_official/rss', 'https://rsshub.app/twitter/user/PHEC_official']
 ]
 
-# The specific queries for your boards
-queries = [
-    '?action=display&bridge=Facebook&context=Facebook+Page&u=Federal.BISE.Official&media_type=all&format=Atom',
-    '?action=display&bridge=Facebook&context=Facebook+Page&u=bbiseqta.edu.pk&media_type=all&format=Atom',
-    '?action=display&bridge=Facebook&context=Facebook+Page&u=BISEPonline&media_type=all&format=Atom',
-    '?action=display&bridge=Twitter&context=By+username&u=EduMinistryPK&format=Atom',
-    '?action=display&bridge=Twitter&context=By+username&u=PHEC_official&format=Atom'
-]
-
+# Filters
 required_words = ['ceremony', 'celebration', 'celebrations', 'celebrating', 'visit', 'expo', 'week', 'workshop', 'competition', 'sports', 'festival']
 excluded_words = ['notification', 'notifications', 'achievement', 'announcement', 'update', 'ai generated', 'examination', 'exam', 'date sheet', 'datesheet', 'apply', 'schedule', 'fee', 'result', 'roll number']
 
@@ -31,7 +31,7 @@ def process_item(image_url, caption):
     if any(word in caption_lower for word in excluded_words):
         return
         
-    # Filter abhi bhi comment kiya hua hai taake pehle data aana shuru ho
+    # Filter abhi bhi comment (disabled) hai testing ke liye
     # if not any(word in caption_lower for word in required_words):
     #     return
 
@@ -50,35 +50,37 @@ def process_item(image_url, caption):
         })
 
 headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
+    'Accept': 'application/rss+xml, application/xml, text/xml'
 }
 
-for query in queries:
+for url_list in sources:
     success = False
-    for base in base_urls:
-        url = base + query
+    for url in url_list:
         try:
-            print(f"Trying to fetch from: {base}...")
-            response = requests.get(url, headers=headers, timeout=15)
+            print(f"Trying to fetch: {url}")
+            response = requests.get(url, headers=headers, timeout=20)
             
             if response.status_code == 200:
                 feed = feedparser.parse(response.content)
                 
                 if len(feed.entries) > 0:
-                    print(f"Success! Fetched data from {base}")
+                    print(f"Success! Fetched data from {url}")
                     for entry in feed.entries:
                         image_url = ''
                         
+                        # 1. Media Content
                         if 'media_content' in entry and len(entry.media_content) > 0:
                             image_url = entry.media_content[0]['url']
+                        # 2. Enclosures
                         elif 'links' in entry:
                             for link in entry.links:
                                 if link.get('rel') == 'enclosure' and 'image' in link.get('type', ''):
                                     image_url = link.get('href')
                                     break
-                                    
-                        if not image_url and 'content' in entry:
-                            content_value = entry.content[0].value
+                        # 3. HTML parsing (RSSHub and Nitter put images inside the description)
+                        if not image_url and ('content' in entry or 'summary' in entry):
+                            content_value = entry.content[0].value if 'content' in entry else entry.summary
                             match = re.search(r'<img[^>]+src="([^">]+)"', content_value)
                             if match:
                                 image_url = match.group(1)
@@ -90,18 +92,18 @@ for query in queries:
                             process_item(image_url, caption)
                             
                     success = True
-                    break # Data mil gaya, aagay rotation rok do aur next board par jao
+                    break # Agar data mil gaya, toh backup URL try karne ki zaroorat nahi
                 else:
-                    print(f"Server {base} returned empty data. Trying next...")
+                    print(f"Empty feed from {url}. Trying backup URL...")
             else:
-                print(f"Failed with status {response.status_code}. Trying next...")
+                print(f"Failed with status {response.status_code}. Trying backup URL...")
         except Exception as e:
-            print(f"Error connecting to {base}: {e}")
+            print(f"Error fetching {url}: {e}")
         
         time.sleep(2) # Anti-spam delay
         
     if not success:
-        print(f"WARNING: All servers failed for query: {query}")
+        print(f"WARNING: All fallback URLs failed for this specific board.")
 
 with open('gallery_data.json', 'w', encoding='utf-8') as f:
     json.dump(gallery_data, f, indent=4, ensure_ascii=False)
