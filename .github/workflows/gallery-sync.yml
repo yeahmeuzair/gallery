@@ -1,0 +1,35 @@
+name: Auto Update BISE Gallery JSON
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # Har 6 ghante baad chalega
+  workflow_dispatch: # Actions tab se manual run karne ke liye
+
+permissions:
+  contents: write # Bot ko repo mein JSON file save karne ki permission deta hai
+
+jobs:
+  update-gallery:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: pip install feedparser requests
+
+      - name: Run Gallery Scraper
+        run: python gallery_scraper.py
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add gallery_data.json
+          # Check agar koi nayi picture aayi hai tabhi commit aur push kare
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update gallery data" && git push)
