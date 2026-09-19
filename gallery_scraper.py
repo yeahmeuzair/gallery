@@ -29,8 +29,8 @@ def process_item(image_url, caption):
         
     # 2. MUST contain an event word
     # (If your JSON comes out empty again, comment these two lines out temporarily by adding a '#' at the start to test if the links have valid pictures)
-    if not any(word in caption_lower for word in required_words):
-        return
+    # if not any(word in caption_lower for word in required_words):
+      #  return
 
     event_name = 'General'
     match = re.search(r'(event|expo|week|workshop):\s*([a-zA-Z0-9\s]+)', caption, re.IGNORECASE)
