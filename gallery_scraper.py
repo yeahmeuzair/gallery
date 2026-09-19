@@ -4,10 +4,10 @@ import re
 
 # 1. Real RSS Feed URLs
 sources = [
-    'https://rss.app/feeds/f8gwDR5UMtjRwgqE.xml',
-    'https://rss.app/feeds/EVFiHoOYNTzFOTsu.xml',
-    'https://rss.app/feeds/wEDpserXX52ZixzJ.xml',
-    'https://rss.app/feeds/tzobQLUwCkEvsRbO.xml',
+    'https://rss.app/feeds/f8gwDR5UMtjRwgqE.xml',
+    'https://rss.app/feeds/EVFiHoOYNTzFOTsu.xml',
+    'https://rss.app/feeds/wEDpserXX52ZixzJ.xml',
+    'https://rss.app/feeds/tzobQLUwCkEvsRbO.xml',
     'https://rss.app/feeds/eCF0mVZksIjdj4Lr.xml',
     'https://rss.app/feeds/kaU5xsCOdNTjOyPI.xml',
     'https://rss.app/feeds/a4EO2O9XAh5pA0Tv.xml',
