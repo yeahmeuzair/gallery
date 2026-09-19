@@ -2,24 +2,23 @@ import feedparser
 import json
 import re
 import requests
-import time
 import os
 import urllib.parse
 
-# GitHub Secrets se API Key fetch karna
+# Fetch API Key from GitHub Secrets
 API_KEY = os.environ.get('SCRAPER_API_KEY')
 
 if not API_KEY:
     print("Error: SCRAPER_API_KEY not found in environment variables!")
     exit(1)
 
-# Original Free RSS-Bridge URLs
+# Using RSSHub URLs routed through ScraperAPI to bypass Cloudflare 403 blocks
 sources = [
-    'https://rss-bridge.org/bridge01/?action=display&bridge=Facebook&context=Facebook+Page&u=Federal.BISE.Official&media_type=all&format=Atom',
-    'https://rss-bridge.org/bridge01/?action=display&bridge=Facebook&context=Facebook+Page&u=bbiseqta.edu.pk&media_type=all&format=Atom',
-    'https://rss-bridge.org/bridge01/?action=display&bridge=Facebook&context=Facebook+Page&u=BISEPonline&media_type=all&format=Atom',
-    'https://rss-bridge.org/bridge01/?action=display&bridge=Twitter&context=By+username&u=EduMinistryPK&format=Atom',
-    'https://rss-bridge.org/bridge01/?action=display&bridge=Twitter&context=By+username&u=PHEC_official&format=Atom'
+    'https://rsshub.app/facebook/page/Federal.BISE.Official',
+    'https://rsshub.app/facebook/page/bbiseqta.edu.pk',
+    'https://rsshub.app/facebook/page/BISEPonline',
+    'https://rsshub.app/twitter/user/EduMinistryPK',
+    'https://rsshub.app/twitter/user/PHEC_official'
 ]
 
 required_words = ['ceremony', 'celebration', 'celebrations', 'celebrating', 'visit', 'expo', 'week', 'workshop', 'competition', 'sports', 'festival']
@@ -33,7 +32,7 @@ def process_item(image_url, caption):
     if any(word in caption_lower for word in excluded_words):
         return
         
-    # Filter testing ke liye filhal disabled hai
+    # The required event filter is currently disabled for testing
     # if not any(word in caption_lower for word in required_words):
     #     return
 
@@ -52,13 +51,15 @@ def process_item(image_url, caption):
         })
 
 for target_url in sources:
-    # URL ko ScraperAPI ke through route karna taake IP block bypass ho jaye
+    # Route RSSHub through ScraperAPI
     encoded_url = urllib.parse.quote(target_url)
     scraper_url = f"http://api.scraperapi.com?api_key={API_KEY}&url={encoded_url}"
     
     try:
-        print(f"Fetching via ScraperAPI: {target_url.split('u=')[1].split('&')[0]}...")
-        # ScraperAPI thora time le sakta hai IP rotate karne mein, isliye timeout lamba rakha hai
+        # Extract the page name for clean console logging
+        page_name = target_url.split('/')[-1]
+        print(f"Fetching {page_name} via ScraperAPI...")
+        
         response = requests.get(scraper_url, timeout=60)
         
         if response.status_code == 200:
