@@ -11,23 +11,24 @@ sources = [
     'https://rss.app/feeds/7UrzKUUXoVYqf06J.xml'
 ]
 
-required_words = ['ceremony', 'celebration', 'celebrations', 'celebrating', 'visit']
-excluded_words = ['notifications', 'achievement', 'announcement', 'update', 'ai generated', 'examination', 'date sheet', 'apply']
+# Expanded list to ensure all event types are captured
+required_words = ['ceremony', 'celebration', 'celebrations', 'celebrating', 'visit', 'expo', 'week', 'workshop', 'competition', 'sports', 'festival']
+
+# Expanded list to strictly block singular/plural notifications, exams, and forms
+excluded_words = ['notification', 'notifications', 'achievement', 'announcement', 'update', 'ai generated', 'examination', 'exam', 'date sheet', 'datesheet', 'apply', 'schedule', 'fee', 'result', 'roll number']
 
 gallery_data = {'General': []}
 
 def process_item(image_url, caption):
     caption_lower = caption.lower()
     
-    # Condition 1: Reject unwanted posts
+    # Condition 1: Reject unwanted posts (Strict Mode ON)
     if any(word in caption_lower for word in excluded_words):
         return
         
-    # Condition 2: Required words (Temporarily Disabled)
-    # Maine isay filhal comment (#) kar diya hai taake pehle JSON mein pictures aa jayen aur gallery chal paray.
-    # Jab aapko sirf strictly "ceremony/visit" wali pictures chahiye hon, toh in 2 lines ke shuru se '#' hata dena.
-    # if not any(word in caption_lower for word in required_words):
-    #     return
+    # Condition 2: MUST contain an event-related word (Re-enabled!)
+    if not any(word in caption_lower for word in required_words):
+        return
 
     # Extract Event Name if present
     event_name = 'General'
