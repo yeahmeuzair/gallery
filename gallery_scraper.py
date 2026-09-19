@@ -2,75 +2,82 @@ import feedparser
 import json
 import re
 
-# 1. Real RSS Feed URLs
+# 1. 100% Free Lifetime RSS-Bridge URLs
 sources = [
-    'https://rss.app/feeds/f8gwDR5UMtjRwgqE.xml',
-    'https://rss.app/feeds/EVFiHoOYNTzFOTsu.xml',
-    'https://rss.app/feeds/wEDpserXX52ZixzJ.xml',
-    'https://rss.app/feeds/tzobQLUwCkEvsRbO.xml',
-    'https://rss.app/feeds/eCF0mVZksIjdj4Lr.xml',
-    'https://rss.app/feeds/kaU5xsCOdNTjOyPI.xml',
-    'https://rss.app/feeds/a4EO2O9XAh5pA0Tv.xml',
-    'https://rss.app/feeds/ThLA59Y8fUmVjsiT.xml',
-    'https://rss.app/feeds/pI1UzPBdMoVgPWuw.xml',
-    'https://rss.app/feeds/7UrzKUUXoVYqf06J.xml'
+    # Federal Board FB
+    'https://rss-bridge.org/bridge01/?action=display&bridge=Facebook&context=Facebook+Page&u=Federal.BISE.Official&media_type=all&format=Atom',
+    # Quetta Board FB
+    'https://rss-bridge.org/bridge01/?action=display&bridge=Facebook&context=Facebook+Page&u=bbiseqta.edu.pk&media_type=all&format=Atom',
+    # Peshawar Board FB
+    'https://rss-bridge.org/bridge01/?action=display&bridge=Facebook&context=Facebook+Page&u=BISEPonline&media_type=all&format=Atom',
+    # EduMinistry X
+    'https://rss-bridge.org/bridge01/?action=display&bridge=Twitter&context=By+username&u=EduMinistryPK&format=Atom',
+    # PHEC X
+    'https://rss-bridge.org/bridge01/?action=display&bridge=Twitter&context=By+username&u=PHEC_official&format=Atom'
 ]
 
-required_words = ['ceremony', 'celebration', 'celebrations', 'celebrating', 'visit']
-excluded_words = ['notifications', 'achievement', 'announcement', 'update', 'ai generated', 'examination', 'date sheet', 'apply']
+# Strict event keyword filter
+required_words = ['ceremony', 'celebration', 'celebrations', 'celebrating', 'visit', 'expo', 'week', 'workshop', 'competition', 'sports', 'festival']
+
+# Strict exclusion filter for text-heavy posts
+excluded_words = ['notification', 'notifications', 'achievement', 'announcement', 'update', 'ai generated', 'examination', 'exam', 'date sheet', 'datesheet', 'apply', 'schedule', 'fee', 'result', 'roll number']
 
 gallery_data = {'General': []}
 
 def process_item(image_url, caption):
-    caption_lower = caption.lower()
-    
-    # Condition 1: Reject unwanted posts
-    if any(word in caption_lower for word in excluded_words):
-        return
-        
-    # Condition 2: Required words (Temporarily Disabled)
-    # Maine isay filhal comment (#) kar diya hai taake pehle JSON mein pictures aa jayen aur gallery chal paray.
-    # Jab aapko sirf strictly "ceremony/visit" wali pictures chahiye hon, toh in 2 lines ke shuru se '#' hata dena.
-    # if not any(word in caption_lower for word in required_words):
-    #     return
+    caption_lower = caption.lower()
+    
+    if any(word in caption_lower for word in excluded_words):
+        return
+        
+    if not any(word in caption_lower for word in required_words):
+        return
 
-    # Extract Event Name if present
-    event_name = 'General'
-    match = re.search(r'(event|expo|week|workshop):\s*([a-zA-Z0-9\s]+)', caption, re.IGNORECASE)
-    if match:
-        event_name = match.group(2).strip().upper()
+    event_name = 'General'
+    match = re.search(r'(event|expo|week|workshop):\s*([a-zA-Z0-9\s]+)', caption, re.IGNORECASE)
+    if match:
+        event_name = match.group(2).strip().upper()
 
-    if event_name not in gallery_data:
-        gallery_data[event_name] = []
-        
-    # Prevent duplicate images from being added twice
-    if not any(img['url'] == image_url for img in gallery_data[event_name]):
-        gallery_data[event_name].append({
-            'url': image_url,
-            'caption': caption.strip()
-        })
+    if event_name not in gallery_data:
+        gallery_data[event_name] = []
+        
+    if not any(img['url'] == image_url for img in gallery_data[event_name]):
+        gallery_data[event_name].append({
+            'url': image_url,
+            'caption': caption.strip()
+        })
 
-# Fetch Data from all boards
 for url in sources:
-    try:
-        feed = feedparser.parse(url)
-        for entry in feed.entries:
-            image_url = ''
-            # RSS.app handles images in media_content
-            if 'media_content' in entry and len(entry.media_content) > 0:
-                image_url = entry.media_content[0]['url']
-            
-            # Combine title and summary for the full caption
-            caption = getattr(entry, 'title', '') + " " + getattr(entry, 'summary', '')
-            
-            # Clean up any messy HTML tags that RSS.app might include in the text
-            caption = re.sub(r'<[^>]+>', '', caption)
-            
-            if image_url:
-                process_item(image_url, caption)
-    except Exception as e:
-        print(f"Error fetching {url}: {e}")
+    try:
+        feed = feedparser.parse(url)
+        for entry in feed.entries:
+            image_url = ''
+            
+            # Upgrade: Bulletproof Image Extraction for Free RSS Generators
+            # 1. Try standard media content
+            if 'media_content' in entry and len(entry.media_content) > 0:
+                image_url = entry.media_content[0]['url']
+            # 2. Try enclosures
+            elif 'links' in entry:
+                for link in entry.links:
+                    if link.get('rel') == 'enclosure' and 'image' in link.get('type', ''):
+                        image_url = link.get('href')
+                        break
+            # 3. Aggressively parse HTML content for embedded image tags (Common in RSS-Bridge)
+            if not image_url and 'content' in entry:
+                content_value = entry.content[0].value
+                match = re.search(r'<img[^>]+src="([^">]+)"', content_value)
+                if match:
+                    image_url = match.group(1)
+            
+            # Combine title and summary for the full text check
+            caption = getattr(entry, 'title', '') + " " + getattr(entry, 'summary', '')
+            caption = re.sub(r'<[^>]+>', '', caption) # Clean HTML tags
+            
+            if image_url:
+                process_item(image_url, caption)
+    except Exception as e:
+        print(f"Error fetching {url}: {e}")
 
-# Save filtered output
 with open('gallery_data.json', 'w', encoding='utf-8') as f:
-    json.dump(gallery_data, f, indent=4, ensure_ascii=False)
+    json.dump(gallery_data, f, indent=4, ensure_ascii=False)
